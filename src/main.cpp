@@ -76,9 +76,6 @@ void setup_wifi()
 
 void setup()
 {
-
-  Serial.begin(115200);
-
   Serial.begin(115200); //Adapt the platformio.ini with correct monitor_speed
 
   Serial.println("Begin NFC532 Scanning Software.");
@@ -166,19 +163,9 @@ void reconnect()
     }
   }
 }
+
 void loop()
 {
-  if (!client.connected())
-  {
-    reconnect();
-  }
-  client.loop();
-
-  long now = millis();
-  if (now - lastMsg > 5000)
-  {
-    lastMsg = now;
-  }
   if (readerDisabled) {
     if (millis() - timeLastCardRead > DELAY_BETWEEN_CARDS) {
       readerDisabled = false;
@@ -189,14 +176,26 @@ void loop()
 
     // When the IRQ is pulled low - the reader has got something for us.
     if (irqCurr == LOW && irqPrev == HIGH) {
-       //Serial.println("Got NFC IRQ");  
-       handleCardDetected(); 
+      //Serial.println("Got NFC IRQ");
+       
+      long long uid = handleCardDetected(); 
+       
+      if (!client.connected())
+      {
+        reconnect();
+      }
+      client.loop();
+      
+      long now = millis();
+      if (now - lastMsg > 5000)
+      {
+        lastMsg = now;
+      }
     }
   
     irqPrev = irqCurr;
   }
 }
-
 
 void startListeningToNFC() {
   // Reset our IRQ indicators
@@ -206,7 +205,7 @@ void startListeningToNFC() {
   nfc.startPassiveTargetIDDetection(PN532_MIFARE_ISO14443A);
 }
 
-void handleCardDetected() {
+long long handleCardDetected() {
     uint8_t success = false;
     uint8_t uid[] = { 0, 0, 0, 0, 0, 0, 0 };  // Buffer to store the returned UID
     uint8_t uidLength;                        // Length of the UID (4 or 7 bytes depending on ISO14443A card type)
@@ -214,6 +213,8 @@ void handleCardDetected() {
     // read the NFC tag's info
     success = nfc.readDetectedPassiveTargetID(uid, &uidLength);
     Serial.println(success ? "Read successful" : "Read failed (not a card?)");
+
+    long long cardid;
 
     if (success) {
       // Display some basic information about the card
@@ -223,19 +224,10 @@ void handleCardDetected() {
       Serial.print("Card ID HEX Value: ");
       nfc.PrintHex(uid, uidLength);
       
-      if (uidLength == 4)
-      {
-        // We probably have a Mifare Classic card ... 
-        uint32_t cardid = uid[0];
-        cardid <<= 8;
-        cardid |= uid[1];
-        cardid <<= 8;
-        cardid |= uid[2];  
-        cardid <<= 8;
-        cardid |= uid[3]; 
-        //Serial.print("Seems to be a Mifare Classic card #");
-        Serial.print("Card ID NUMERIC Value: ");
-        Serial.println(cardid);
+      cardid = uid[0];
+      for(int i=1; i<uidLength; i++){
+        cardid << 8;
+        cardid |= uid[i];
       }
       Serial.println("");
 
@@ -244,4 +236,5 @@ void handleCardDetected() {
 
     // The reader will be enabled again after DELAY_BETWEEN_CARDS ms will pass.
     readerDisabled = true;
+    return cardid;
 }
