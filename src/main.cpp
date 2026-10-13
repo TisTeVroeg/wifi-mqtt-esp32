@@ -122,19 +122,9 @@ void callback(char *topic, byte *message, unsigned int length)
 
   // If a message is received on the topic esp32/output, you check if the message is either "on" or "off".
   // Changes the output state according to the message
-  if (String(topic) == "esp32/output")
+  if (String(topic) == "wachtwoord")
   {
-    Serial.print("Changing output to ");
-    if (messageTemp == "on")
-    {
-      Serial.println("on");
-      digitalWrite(LED_PIN, HIGH);
-    }
-    else if (messageTemp == "off")
-    {
-      Serial.println("off");
-      digitalWrite(LED_PIN, LOW);
-    }
+    Serial.print(messageTemp);
   }
 }
 
@@ -184,6 +174,7 @@ void loop()
       {
         reconnect();
       }
+      client.publish("tag", uid);
       client.loop();
       
       long now = millis();
